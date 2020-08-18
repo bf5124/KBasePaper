@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import sklearn
@@ -178,7 +177,7 @@ def Data_Splitter(Dataset, ttsplit):
 # Tf-idf Transformation on Training and Validation data based on max_features # of vocabulary words
 # generated from each file class.
 
-def Char_vectorizer2(X_train, y_train, X_test, y_test, filetype, ngram_range, max_features, load):
+def Char_vectorizer2(X_train, y_train, X_test, y_test, filetype, ngram_range, max_features, load, state):
     
     fitset = trainselector2(np.array(X_train), np.array(y_train), len(filetype))
     
@@ -206,7 +205,7 @@ def Char_vectorizer2(X_train, y_train, X_test, y_test, filetype, ngram_range, ma
         
         train_chars = char_vectorizer2.transform(X_train)
         test_chars = char_vectorizer2.transform(X_test)
-        pickle.dump(char_vectorizer2, open("tfidfcv2.pkl", "wb"))
+        pickle.dump(char_vectorizer2, open(state, "wb"))
         print("Character Vectorizer Saved")
         end = time.time()
         print("Vectorizer Train Time: %d" % (end-start))
@@ -214,7 +213,7 @@ def Char_vectorizer2(X_train, y_train, X_test, y_test, filetype, ngram_range, ma
     if load == True:
         start = time.time()
         print("Loading Character Vectorizer...")
-        char_vectorizer = pickle.load(open("tfidfcv2.pkl", 'rb'))
+        char_vectorizer = pickle.load(open(state, 'rb'))
         print("Character Vectorizer Loaded")
     
         print(char_vectorizer.get_feature_names())
@@ -251,10 +250,10 @@ def classcounts(y_set, nclass, filetypes):
 
 # Vectorizes test set and converts to DMatrix
 
-def test_char_vectorizer(X_test):
+def test_char_vectorizer(X_test, state):
     start = time.time()
     #print("Loading Character Vectorizer...")
-    char_vectorizer = pickle.load(open("tfidfcv2.pkl", 'rb'))
+    char_vectorizer = pickle.load(open(state, 'rb'))
     #print("Character Vectorizer Loaded")
     #print(char_vectorizer.get_feature_names())
     
@@ -300,20 +299,20 @@ def trainselector2(train_data, train_label, n_class):
 
 # Trains/Loads XGB Classifier
 
-def TrainXGBClassifier(param, num_round, train_dat, val_dat, y_train, y_val, load):
+def TrainXGBClassifier(param, num_round, train_dat, val_dat, y_train, y_val, load, state):
     train_dat = xgb.DMatrix(train_dat, label = y_train)
     val_dat = xgb.DMatrix(val_dat, label = y_val)
     if load == False:
         start = time.time()
         print("Training Model...")
         model = xgb.train(param, train_dat, num_round, evals = [(train_dat, 'train'), (val_dat, 'eval')], verbose_eval = True)
-        pickle.dump(model, open("xgb_class.pkl", "wb"))
+        pickle.dump(model, open(state, "wb"))
         print("Model Saved")
         end = time.time()
         print('Training time: %d' % (end-start))
     if load == True:
         print("Loading Model...")
-        model = pickle.load(open("xgb_class.pkl", "rb"))
+        model = pickle.load(open(state, "rb"))
         print("Model Loaded")
         
     return model
@@ -321,19 +320,19 @@ def TrainXGBClassifier(param, num_round, train_dat, val_dat, y_train, y_val, loa
 
 # Trains/Loads SVM Classifier
 
-def TrainSVMClassifier(train_dat, y_train, load):
+def TrainSVMClassifier(train_dat, y_train, load, state):
     if load == False:
         start = time.time()
         print("Training Model...")
         model = OneVsRestClassifier(SVC(kernel='linear', probability=True, C=1))
         model.fit(char_train, y_train)
-        pickle.dump(model, open("svm_class.pkl", "wb"))
+        pickle.dump(model, open(state, "wb"))
         print("Model Saved")
         end = time.time()
         print('Training time: %d' % (end-start))
     if load == True:
         print("Loading Model...")
-        model = pickle.load(open("svm_class.pkl", "rb"))
+        model = pickle.load(open(state, "rb"))
         print("Model Loaded")
         
     return model
@@ -380,7 +379,7 @@ def print_scores(p, r, f1, a, batch_size):
 
 # Trains/Loads MLP Classifier
 
-def TrainMLPClassifier(Net, train_dat, y_train, val_dat, y_val, epochs, load):
+def TrainMLPClassifier(Net, train_dat, y_train, val_dat, y_val, epochs, load, state):
     y_train = np.asarray(y_train)
     y_val = np.asarray(y_val)
     
@@ -444,7 +443,7 @@ def TrainMLPClassifier(Net, train_dat, y_train, val_dat, y_val, epochs, load):
             print_scores(precision, recall, f1, accuracy, val_batches)
             #losses.append(total_loss/batches)
         
-        torch.save(model.state_dict(), 'FileClassMLP.pt')
+        torch.save(model.state_dict(), state)
         print("Model Saved")
         end = time.time()
         print('Training time: %d' % (end-start))
@@ -452,13 +451,13 @@ def TrainMLPClassifier(Net, train_dat, y_train, val_dat, y_val, epochs, load):
     if load == True:
         print("Loading Model...")
         model = Net()
-        model.load_state_dict(torch.load('FileClassMLP.pt'))
+        model.load_state_dict(torch.load(state))
         print("Model Loaded")
         
     return model
         
 
-# Tests Classifier
+# Tests Classifier. Returns array of predicted classes
 
 def TestFileClassifier(model, data_test, filetype, y_test, output, threshold, threshold_plots, classifier):
       
@@ -520,32 +519,32 @@ def TestFileClassifier(model, data_test, filetype, y_test, output, threshold, th
         
         Y_bin = label_binarize(y_test_threshold, classes = [*range(len(filetype))])
         curr_thresh = thperc
-        
-        prec = dict()
-        rec = dict()
-        for f in range(len(filetype)):
-            prec[f],rec[f],_ = precision_recall_curve(Y_bin[:,f], new_preds[:,f])
-            plt.plot(rec[f], prec[f], lw = 2, label = 'class '+filetype[f])
-        plt.xlabel("Recall")
-        plt.ylabel("Precision")
-        plt.legend(loc="best")
-        plt.title("Precision vs. Recall Curve for Threshold: {}".format(curr_thresh))
-        plt.figure(figsize = (20,10))
-        plt.show()
-        
-        
-        fpr = dict()
-        tpr = dict()
-        for e in range(len(filetype)):
-            fpr[e], tpr[e], _ = roc_curve(Y_bin[:, e],
-                                          new_preds[:, e])
-            plt.plot(fpr[e], tpr[e], lw=2, label='class '+filetype[e])
+        if output == True:
+            prec = dict()
+            rec = dict()
+            for f in range(len(filetype)):
+                prec[f],rec[f],_ = precision_recall_curve(Y_bin[:,f], new_preds[:,f])
+                plt.plot(rec[f], prec[f], lw = 2, label = 'class '+filetype[f])
+            plt.xlabel("Recall")
+            plt.ylabel("Precision")
+            plt.legend(loc="best")
+            plt.title("Precision vs. Recall Curve for Threshold: {}".format(curr_thresh))
+            plt.figure(figsize = (20,10))
+            plt.show()
 
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.legend(loc="best")
-        plt.title("ROC Curve for Threshold: {}".format(curr_thresh))
-        plt.show()
+
+            fpr = dict()
+            tpr = dict()
+            for e in range(len(filetype)):
+                fpr[e], tpr[e], _ = roc_curve(Y_bin[:, e],
+                                              new_preds[:, e])
+                plt.plot(fpr[e], tpr[e], lw=2, label='class '+filetype[e])
+
+            plt.xlabel("False Positive Rate")
+            plt.ylabel("True Positive Rate")
+            plt.legend(loc="best")
+            plt.title("ROC Curve for Threshold: {}".format(curr_thresh))
+            plt.show()
 
         
         if output == True:
