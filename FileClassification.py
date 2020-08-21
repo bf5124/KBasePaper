@@ -625,3 +625,40 @@ def TestFileClassifier(model, data_test, filetype, y_test, output, threshold, th
   
     return best_preds
 
+# Tests Classifier. Returns array of predicted classes
+
+def TestFileClassifier2(model, data_test, threshold, classifier):
+    
+    if classifier == 'xgb':
+        data_test = xgb.DMatrix(data_test)
+    if classifier == 'mlp':
+        data_test = torch.Tensor(data_test.toarray())
+    
+    for thperc in threshold:
+        preds_threshold = []
+        start = time.time()
+        if classifier == 'xgb':
+            preds = model.predict(data_test)
+        if classifier == 'svm':
+            preds = model.predict_proba(data_test)
+        if classifier == 'mlp':
+            model.eval()
+            with torch.no_grad():
+                preds = model(data_test).data.numpy()
+        end = time.time()
+        
+        best_preds = []
+        below_ind = []
+
+        for p in range(len(preds)):
+            if np.max(preds[p]) < thperc:
+                below_ind.append(p)
+                
+            else:
+                preds_threshold.append(preds[p])
+                best_preds.append(np.argmax([preds[p]]))
+        
+        best_preds = np.array(best_preds)
+
+  
+    return best_preds
