@@ -1,4 +1,4 @@
-# FileClassificationReal
+# KBase File Classifier
 
 Filetype Classifier for KBase Files. 
 
