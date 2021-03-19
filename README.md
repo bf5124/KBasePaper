@@ -2,7 +2,7 @@
 
 Filetype Classifier for KBase Files.
 
-Data files used for the model here are available at xxxxxxxxx in truncated form.
+Data files used for the model here are available at https://drive.google.com/file/d/17VhkOTuFDc52smyVyPKxIcLo5Q0UuR-m/view?usp=sharing in truncated form.
 
 Please follow the FileClassificationEx ipynb for a general guideline of how to run.
 
